@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owns(uid) { return request.auth != null && request.auth.uid == uid; }
+    function validAccount(uid) {
+      return request.resource.data.keys().hasOnly(['uid', 'schemaVersion', 'lifecycle'])
+        && request.resource.data.uid == uid
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.lifecycle in ['active', 'deleting'];
+    }
+    match /users/{uid} {
+      allow get: if owns(uid);
+      allow create: if owns(uid) && validAccount(uid) && request.resource.data.lifecycle == 'active';
+      // ADR-007: a late client callback cannot reactivate a deleting account.
+      allow update: if owns(uid) && resource.data.lifecycle == 'active' && validAccount(uid);
+      // Collection queries and client account deletion are not supported yet.
+    }
+    match /{path=**} { allow read, write: if false; }
+  }
+}

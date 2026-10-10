@@ -1,0 +1,32 @@
+name: JVM and architecture verification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jvm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Check declared module boundaries
+        run: python3 scripts/architecture_check.py
+      - name: Run cross-platform domain and persistence tests on JVM
+        run: ./gradlew :domain:jvmTest :data:jvmTest :designsystem:jvmTest :feature:walk:jvmTest :sharedApp:jvmTest --console=plain

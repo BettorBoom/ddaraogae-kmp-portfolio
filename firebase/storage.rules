@@ -1,0 +1,7 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // ADR-007: open exact object schemas with M07/M11; no speculative access.
+    match /{path=**} { allow read, write: if false; }
+  }
+}

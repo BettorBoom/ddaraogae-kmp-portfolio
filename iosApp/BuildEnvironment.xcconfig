@@ -1,0 +1,4 @@
+DDARAOGAE_KMP_BUILD_DIR = $(SRCROOT)/../sharedApp/build
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+#include? "Local.xcconfig"
