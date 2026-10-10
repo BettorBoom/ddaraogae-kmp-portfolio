@@ -137,7 +137,7 @@ final class ScenarioTests: XCTestCase {
         let detail = app.buttons["1번째 산책 자세히 보기"]
         reveal(detail, in: app)
         detail.tap()
-        XCTAssertTrue(app.staticTexts["샘플 지도 위 실제 좌표의 상대 이동선 · 지리적 위치 불일치"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["샘플 지도 위 상대 이동선 · 실제 위치와 다름"].waitForExistence(timeout: 10))
         app.terminate()
         app.launchArguments = ["--demo-route"]
         app.launch()

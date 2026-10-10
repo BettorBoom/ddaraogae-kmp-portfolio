@@ -128,7 +128,9 @@ fun WalkContent(state: WalkSessionState, busy: Boolean, error: String?, onBack: 
                     } else {
                         PrimaryAction(actionLabel, enabled = actionEnabled, onClick = onAction)
                     }
-                    if (pointsCount > 0) Text("위치 ${pointsCount}개 기록 중 · 종료 후 경로 도식에서 확인",
+                    if (pointsCount > 0) Text(
+                        if (recording) "위치 ${pointsCount}개 기록 중 · 종료 후 경로 도식에서 확인"
+                        else "위치 ${pointsCount}개 저장됨 · 경로 도식에서 확인",
                         style = MaterialTheme.typography.bodySmall)
                     locationNotice?.let { Text(it, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant) }

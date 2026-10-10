@@ -55,13 +55,14 @@ def run(argv, profile, env=None):
         raise SystemExit(result.returncode)
 
 
-def main(profile, ticket="M03", scenarios=False, firebase=False, firebase_cloud=False):
+def main(profile, ticket="M03", scenarios=False, firebase=False, firebase_cloud=False, location=False):
     global WORK
     WORK = ROOT / f".workflow/{ticket}" / ("cloud" if firebase_cloud else "")
     WORK.mkdir(parents=True, exist_ok=True)
     # Product and scenario suites use different compile inputs. Preserve both
     # receipts so a later product check cannot erase scenario evidence.
-    report = WORK / (f"{profile}-scenarios-tests.json" if scenarios and profile in {"android", "swift"}
+    report = WORK / (f"{profile}-location-tests.json" if location else
+                     f"{profile}-scenarios-tests.json" if scenarios and profile in {"android", "swift"}
                      else f"{profile}-tests.json")
     report.unlink(missing_ok=True)
     env = os.environ.copy()
@@ -111,18 +112,36 @@ def main(profile, ticket="M03", scenarios=False, firebase=False, firebase_cloud=
             raise SystemExit("No installed iPhone Simulator is available")
         device = os.environ.get("DDARAOGAE_IOS_DEVICE") or next((d["udid"] for d in phones if d["state"] == "Booted"), phones[0]["udid"])
         result = WORK / f"swift-{uuid.uuid4()}.xcresult"
-        run(["xcodebuild", "-project", "iosApp/iosApp.xcodeproj", "-scheme", "Ddaraogae", "-configuration", "Debug",
+        xcode_args = ["xcodebuild", "-project", "iosApp/iosApp.xcodeproj", "-scheme", "Ddaraogae", "-configuration", "Debug",
              "-destination", f"platform=iOS Simulator,id={device}", "-derivedDataPath", str(build_dir("iosHost")),
              f"FRAMEWORK_SEARCH_PATHS=$(inherited) {build_dir('sharedApp')}/bin/iosSimulatorArm64/debugFramework",
              # Simulator ad-hoc signing needs no Apple team and preserves Keychain entitlements.
-             "-resultBundlePath", str(result), "CODE_SIGNING_ALLOWED=YES", "CODE_SIGN_IDENTITY=-",
+             "CODE_SIGNING_ALLOWED=YES", "CODE_SIGN_IDENTITY=-",
              # Preserve SWIFT_PACKAGE in package targets, or Firebase imports its CocoaPods module names.
              *(["SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) DEBUG DDARAOGAE_SCENARIOS"] if scenarios else []),
-             *(["SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) DEBUG DDARAOGAE_FIREBASE_TESTS" + (" DDARAOGAE_FIREBASE_CLOUD_TESTS" if firebase_cloud else "")] if firebase else []), "clean", "test"], profile)
+             *(["SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) DEBUG DDARAOGAE_FIREBASE_TESTS" + (" DDARAOGAE_FIREBASE_CLOUD_TESTS" if firebase_cloud else "")] if firebase else []),
+             *(["SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) DEBUG DDARAOGAE_LOCATION_TESTS"] if location else [])]
+        if location:
+            run([*xcode_args, "clean", "build-for-testing"], "swift-location-build")
+            app = build_dir("iosHost") / "Build/Products/Debug-iphonesimulator/Ddaraogae.app"
+            subprocess.run(["xcrun", "simctl", "install", device, str(app)], check=True)
+            subprocess.run(["xcrun", "simctl", "privacy", device, "grant", "location", "dev.ddaraogae.preview"], check=True)
+            try:
+                # The route lasts well beyond XCTest startup at walking speed.
+                subprocess.run(["xcrun", "simctl", "location", device, "start", "--speed=1.4", "--interval=1",
+                                "37.5665,126.9780", "37.6000,127.0000"], check=True)
+                run([*xcode_args, "-resultBundlePath", str(result),
+                     "-only-testing:DdaraogaeUITests/BootstrapTests/testSimulatorCoreLocationReachesSavedWalk",
+                     "test-without-building"], "swift-location")
+            finally:
+                subprocess.run(["xcrun", "simctl", "location", device, "clear"], check=True)
+        else:
+            run([*xcode_args, "-resultBundlePath", str(result), "clean", "test"], profile)
         raw = json.loads(subprocess.check_output(["xcrun", "xcresulttool", "get", "test-results", "summary",
                                                 "--path", str(result), "--format", "json"], text=True))
-        expected = sum(len(re.findall(r"func test\w+\(", p.read_text())) for p in (ROOT / "iosApp/iosAppUITests").glob("*.swift")
-                       if (scenarios or p.name != "ScenarioTests.swift") and (firebase or p.name != "FirebaseSmokeTests.swift"))
+        expected = (1 if location else sum(len(re.findall(r"func test\w+\(", p.read_text().split("#if DDARAOGAE_LOCATION_TESTS")[0]))
+                       for p in (ROOT / "iosApp/iosAppUITests").glob("*.swift")
+                       if (scenarios or p.name != "ScenarioTests.swift") and (firebase or p.name != "FirebaseSmokeTests.swift")))
         summary = {"tests_run": raw["totalTestCount"], "skipped": raw["skippedTests"],
                    "success": raw["result"] == "Passed" and raw["failedTests"] == raw["expectedFailures"] == 0,
                    "complete": raw["totalTestCount"] == expected and expected > 0,
@@ -157,7 +176,10 @@ if __name__ == "__main__":
     mode.add_argument("--scenarios", action="store_true")
     mode.add_argument("--firebase", action="store_true")
     mode.add_argument("--firebase-cloud", action="store_true", help="Explicit real new-project smoke; creates synthetic test accounts")
+    mode.add_argument("--location", action="store_true", help="Drive iOS Simulator Core Location and assert stored walk")
     args = parser.parse_args()
     if args.firebase_cloud and (args.profile not in {"android", "swift"} or args.ticket != "M04"):
         parser.error("Cloud smoke requires android|swift --ticket M04")
-    raise SystemExit(main(args.profile, args.ticket, args.scenarios, args.firebase or args.firebase_cloud, args.firebase_cloud))
+    if args.location and (args.profile != "swift" or args.ticket != "M05"):
+        parser.error("Location smoke requires swift --ticket M05")
+    raise SystemExit(main(args.profile, args.ticket, args.scenarios, args.firebase or args.firebase_cloud, args.firebase_cloud, args.location))

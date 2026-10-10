@@ -83,7 +83,7 @@ fun RouteSketch(points: List<WalkPoint>) {
         return
     }
     val route = MaterialTheme.colorScheme.primary
-    InfoCard("함께 걸은 길", "샘플 지도 위 실제 좌표의 상대 이동선 · 지리적 위치 불일치") {
+    InfoCard("함께 걸은 길", "샘플 지도 위 상대 이동선 · 실제 위치와 다름") {
         Box(Modifier.fillMaxWidth().height(230.dp).clip(RoundedCornerShape(10.dp))) {
             MapBackdrop(Modifier.fillMaxSize())
             Canvas(Modifier.fillMaxSize()

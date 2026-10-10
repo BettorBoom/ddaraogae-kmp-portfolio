@@ -12,6 +12,50 @@ import kotlin.test.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RuntimeTest {
+    @Test fun activeWalkObserverFollowsSegmentsAndCancellation() = runTest {
+        val store = MemoryStore()
+        val backend = object : NativeBackend {
+            override fun observeUser(observer: BackendUserObserver) = object : CancelHandle { override fun cancel() {} }
+        }
+        val runtime = AppRuntime(store, "a", backend, StandardTestDispatcher(testScheduler))
+        val observed = mutableListOf<Pair<String?, Int>>()
+        val handle = runtime.observeActiveWalk(object : ActiveWalkObserver {
+            override fun onActiveWalk(walkId: String?, segment: Int) { observed += walkId to segment }
+        })
+        runCurrent()
+        val start = Clock.System.now().toEpochMilliseconds() + 1_000
+        store.start(WalkSession("walk", "a", start, WalkStatus.Recording,
+            lastResumedAtMillis = start, segmentStartedAtMillis = start))
+        runCurrent()
+        store.pause("a", "walk", start + 1)
+        runCurrent()
+        store.resume("a", "walk", start + 2)
+        runCurrent()
+        assertEquals(listOf(null to 0, "walk" to 0, null to 0, "walk" to 1), observed)
+        handle.cancel()
+        store.finish("a", "walk", start + 3)
+        runCurrent()
+        assertEquals(4, observed.size)
+        runtime.close()
+    }
+
+    @Test fun nativeLocationBoundaryRejectsInvalidSamples() = runTest {
+        val store = MemoryStore()
+        val backend = object : NativeBackend {
+            override fun observeUser(observer: BackendUserObserver) = object : CancelHandle { override fun cancel() {} }
+        }
+        val runtime = AppRuntime(store, "a", backend, StandardTestDispatcher(testScheduler))
+        val start = Clock.System.now().toEpochMilliseconds() + 1_000
+        store.start(WalkSession("walk", "a", start, WalkStatus.Recording,
+            lastResumedAtMillis = start, segmentStartedAtMillis = start))
+        runCurrent()
+        runtime.submitNativeLocation("walk", 0, 37.0, 127.0, start + 1, -1.0)
+        runtime.submitNativeLocation("walk", 0, 37.0, 127.0, start + 1, 5.0)
+        runCurrent()
+        assertEquals(1, store.samples.size)
+        runtime.close()
+    }
+
     @Test fun userScopeSharesControllerAndCloseReleasesResources() = runTest {
         val store = MemoryStore()
         var listenerCancelled = 0
@@ -129,6 +173,7 @@ class RuntimeTest {
 
 private class MemoryStore : WalkSessionStore {
     private val latest = MutableStateFlow<WalkSession?>(null)
+    val samples = mutableListOf<LocationSample>()
     var closed = 0
     override fun observe(userId: String) = latest.map { it?.takeIf { it.userId == userId } }
     override fun observeHistory(userId: String) = flowOf(emptyList<WalkSession>())
@@ -151,6 +196,8 @@ private class MemoryStore : WalkSessionStore {
                          segmentStartedAtMillis = nowMillis, segment = it.segment + 1) }
     }
     override suspend fun checkpoint(userId: String, walkId: String, nowMillis: Long) {}
-    override suspend fun appendPoint(userId: String, walkId: String, segment: Int, sample: LocationSample) {}
+    override suspend fun appendPoint(userId: String, walkId: String, segment: Int, sample: LocationSample) {
+        samples += sample
+    }
     override fun close() { closed++ }
 }

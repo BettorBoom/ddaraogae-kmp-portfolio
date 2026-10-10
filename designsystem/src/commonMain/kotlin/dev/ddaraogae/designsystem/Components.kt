@@ -100,5 +100,5 @@ fun StateNotice(status: ScreenStatus, emptyMessage: String, onRetry: (() -> Unit
 
 @Composable
 fun MapPlaceholder() {
-    InfoCard("함께 걸은 길", "위치·지도 연결 전이에요. 실제 경로는 아직 표시하지 않아요.")
+    InfoCard("함께 걸은 길", "저장된 위치가 없어요. 앱이 열린 동안 위치 권한을 허용하면 경로를 기록해요.")
 }

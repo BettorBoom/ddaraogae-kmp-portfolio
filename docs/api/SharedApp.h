@@ -8,7 +8,7 @@
 
 @class SharedAppAppRuntime, SharedAppKotlinArray<T>, SharedAppKotlinEnum<E>, SharedAppKotlinEnumCompanion, SharedAppWalkSession, SharedAppWalkSessionState, SharedAppWalkStatus, UIViewController;
 
-@protocol SharedAppBackendUserObserver, SharedAppCancelHandle, SharedAppKotlinComparable, SharedAppKotlinIterator, SharedAppNativeBackend;
+@protocol SharedAppActiveWalkObserver, SharedAppBackendUserObserver, SharedAppCancelHandle, SharedAppKotlinComparable, SharedAppKotlinIterator, SharedAppNativeBackend;
 
 NS_ASSUME_NONNULL_BEGIN
 #pragma clang diagnostic push
@@ -228,11 +228,20 @@ __attribute__((swift_name("WalkStatus")))
 @property (class, readonly) NSArray<SharedAppWalkStatus *> *entries __attribute__((swift_name("entries")));
 @end
 
+__attribute__((swift_name("ActiveWalkObserver")))
+@protocol SharedAppActiveWalkObserver
+@required
+- (void)onActiveWalkWalkId:(NSString * _Nullable)walkId segment:(int32_t)segment __attribute__((swift_name("onActiveWalk(walkId:segment:)")));
+@end
+
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("AppRuntime")))
 @interface SharedAppAppRuntime : SharedAppBase
 - (void)close __attribute__((swift_name("close()")));
+- (id<SharedAppCancelHandle>)observeActiveWalkObserver:(id<SharedAppActiveWalkObserver>)observer __attribute__((swift_name("observeActiveWalk(observer:)")));
 - (void)pauseForBackground __attribute__((swift_name("pauseForBackground()")));
+- (void)setLocationNoticeMessage:(NSString * _Nullable)message __attribute__((swift_name("setLocationNotice(message:)")));
+- (void)submitNativeLocationWalkId:(NSString *)walkId segment:(int32_t)segment latitude:(double)latitude longitude:(double)longitude recordedAtMillis:(int64_t)recordedAtMillis accuracyMeters:(double)accuracyMeters __attribute__((swift_name("submitNativeLocation(walkId:segment:latitude:longitude:recordedAtMillis:accuracyMeters:)")));
 @property (readonly) BOOL isClosed __attribute__((swift_name("isClosed")));
 @end
 
