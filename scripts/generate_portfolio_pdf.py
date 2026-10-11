@@ -92,7 +92,7 @@ def main():
          "확인했습니다. 야외 실측이나 실기기 결과는 아닙니다.", 42, H - 445, W - 84, 8.6, color=MUTED)
     shots = ROOT / "docs/evidence/submission/screens"
     for x, path, caption in (
-        (42, shots / "android-walk-recording.png", "Android · 산책 중(주입 좌표)"),
+        (42, shots / "android-walk-recording.png", "Android · 산책 중(샘플 지도)"),
         (167, shots / "android-home-after-walk.png", "Android · 산책 후 홈"),
         (292, shots / "ios-stamp-dialog.png", "iOS · 오늘 모은 도장"),
         (417, shots / "ios-history.png", "iOS · 산책 모아보기"),
@@ -129,16 +129,17 @@ def main():
         label(c, detail, 242, y, 8.2)
         y -= 29
     label(c, "검증된 범위", 42, H - 581, 11)
-    para(c, "2026-10-11 로컬 실행: 공통 Kotlin 84개(JVM+iOS) · Android 제품 2개와 시나리오 5개 · iOS 제품 2개와 시나리오 7개, "
+    para(c, "2026-10-11 로컬 실행: 공통 Kotlin 86개(JVM+iOS) · Android 제품 2개와 시나리오 5개 · iOS 제품 2개와 시나리오 7개, "
          "Core Location 주입 1개. Android/iOS 각 57개 상태별 PNG와 Release fixture 차단을 확인했습니다. 모두 에뮬레이터·시뮬레이터 결과입니다.",
          42, H - 596, W - 84, 8.8)
     rounded(c, 42, 113, W - 84, 72)
-    para(c, "<b>제한</b>  로그인·클라우드 동기화, 양 플랫폼 백그라운드 추적, 실제 지도 타일, 날씨·알림 예약, "
-         "서명 배포/TestFlight·실기기 검증은 아직 완료하지 않았습니다. 화면 지도는 실제 좌표와 맞지 않는 고정 샘플임을 "
-         "표시합니다. 독립 리뷰는 받지 않았습니다.",
+    para(c, "<b>제한</b>  로그인·클라우드 동기화, 백그라운드 추적, 실제 지도, 날씨·알림 예약, "
+         "서명 배포/TestFlight·실기기 검증은 미완료입니다. 지도는 고정 샘플입니다. "
+         "독립 코드 리뷰 3건을 반영했고, 시뮬레이터 검증은 구현자가 실행했습니다.",
          55, 167, W - 110, 8.7)
     label(c, "코드·시연·결정 기록", 42, 76, 8.5, MUTED)
     label(c, "github.com/BettorBoom/ddaraogae-kmp-portfolio", 176, 76, 8.5, BRAND)
+    c.linkURL("https://github.com/BettorBoom/ddaraogae-kmp-portfolio", (176, 70, W - 42, 89))
     c.showPage()
     c.save()
     print(OUT)

@@ -2,6 +2,8 @@
 
 반려견 산책 기록 앱 **따라오개**([원본 Android 팀 프로젝트](https://github.com/nbc-final-team2/ddaraogae))를 Kotlin Multiplatform과 Compose Multiplatform으로 다시 만든 포트폴리오입니다. 원본의 홈·산책·산책 완료·산책 모아보기·도장·마이페이지·반려견·알림 화면을 **같은 공통 Compose 코드로 Android와 iOS에 이식**했고, 산책 기록(위치·거리·경로)과 도장·그래프는 두 플랫폼에서 실제로 동작합니다. 실제 지도, 로그인, 날씨, 알림 예약, 클라우드 동기화는 **아직 연결하지 않았습니다.** 화면별 같은 점·다른 점은 [패리티 표](docs/ui-parity.md), 남은 일은 [현황표](docs/migration-gap-audit.md)에 그대로 적었습니다.
 
+채용 지원서 첨부용 [2쪽 포트폴리오 PDF](output/pdf/ddaraogae-kmp-portfolio.pdf)도 제공합니다.
+
 ## 화면
 
 아래는 모두 **일반 제품 빌드**(`개발용 예시 데이터` 배너가 없는 빌드)를 Android 에뮬레이터(Pixel 4a, API 34)와 iPhone 17 Pro Simulator(iOS 26)에서 실행한 화면입니다. 위치는 에뮬레이터/시뮬레이터에 주입한 좌표이며 야외 실측이나 실기기 결과가 아닙니다. 산책 화면의 지도는 원본에 들어 있던 **고정 샘플 이미지**라 현재 위치와 맞지 않고, 경로는 그 위에 상대 선으로 그려지며 화면에 그렇게 표시됩니다.
