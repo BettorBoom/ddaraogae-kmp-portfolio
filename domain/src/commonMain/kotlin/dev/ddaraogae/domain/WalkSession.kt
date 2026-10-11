@@ -16,8 +16,23 @@ import kotlin.experimental.ExperimentalObjCRefinement
 enum class WalkStatus { Recording, Completed, Interrupted }
 
 @HiddenFromObjC
-data class DogProfile(val userId: String, val name: String) {
-    init { require(userId.isNotBlank() && name.isNotBlank()) }
+enum class DogGender { Male, Female }
+
+// Only the name is required, as in the original form. The other fields stay null
+// until the user fills them; an existing v4 row is never assumed to be male/female.
+@HiddenFromObjC
+data class DogProfile(
+    val userId: String,
+    val name: String,
+    val gender: DogGender? = null,
+    val age: Int? = null,
+    val breed: String? = null,
+    val memo: String? = null,
+) {
+    init {
+        require(userId.isNotBlank() && name.isNotBlank())
+        require(age == null || age in 0..99)
+    }
 }
 
 @HiddenFromObjC
@@ -78,6 +93,7 @@ interface WalkSessionStore {
     fun observePoints(userId: String, walkId: String): Flow<List<WalkPoint>>
     fun observeDog(userId: String): Flow<DogProfile?>
     suspend fun saveDog(profile: DogProfile)
+    suspend fun deleteDog(userId: String)
     suspend fun start(session: WalkSession)
     suspend fun finish(userId: String, walkId: String, endedAtMillis: Long)
     suspend fun pause(userId: String, walkId: String, nowMillis: Long)
@@ -109,7 +125,13 @@ class WalkSessionController(
     fun record(walkId: String): Flow<WalkSession?> = store.observeRecord(userId, walkId)
     fun points(walkId: String): Flow<List<WalkPoint>> = store.observePoints(userId, walkId)
 
-    suspend fun saveDog(name: String) = store.saveDog(DogProfile(userId, name.trim()))
+    suspend fun saveDog(name: String, gender: DogGender? = null, age: Int? = null,
+                        breed: String? = null, memo: String? = null) =
+        store.saveDog(DogProfile(userId, name.trim(), gender, age,
+            breed?.trim()?.ifEmpty { null }, memo?.trim()?.ifEmpty { null }))
+
+    // Past walks keep their dog-name snapshot; only the profile row is removed.
+    suspend fun deleteDog() = store.deleteDog(userId)
 
     suspend fun start(walkId: String, nowMillis: Long, dogName: String? = null) {
         check(state.value.loaded && !state.value.failed)

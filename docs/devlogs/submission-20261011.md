@@ -1,5 +1,7 @@
 # 2026-10-11 지원용 로컬 코어 작업 기록
 
+> 이후(2026-10-11) 원본 화면 전체 이식과 제품 빌드 교차 검증은 [M10 devlog](M10.md)에 있다. 이 문서의 숫자와 화면은 그 이전(옛 UI) 기록이며, 옛 화면 사진은 `docs/evidence/submission/previous-ui/`에 보존했다.
+
 최신 로컬 결과(2026-10-10): 공통 Kotlin JVM+iOS 35개, Android 제품 계측 1개·시나리오 계측 3개, iOS 제품 XCTest 2개·시나리오 XCTest 5개, Python 하네스 33개가 각각 실패/skip 0으로 통과했다. Android/iOS 각 39장 화면 PNG를 최신 테스트 원본에서 수집했고 Debug fixture의 Release 배제 3건과 unsigned Release 바이너리를 확인했다. 외부 실기기·배포는 아래 미완료 범위를 따른다.
 
 ## WHY / 결정
@@ -41,10 +43,11 @@ Android 첫 최종 배치 일반 UI 1개·시나리오 3개는 통과했다. 첫
 ## 검증과 아직 남은 것
 
 - 2026-10-09 로컬 증거: JVM+iOS 공용 테스트 30개, Android 계측 3개, iOS Simulator XCTest 5개, Python 하네스 33개, 모두 skip/실패 0. Android APK·iOS 시뮬레이터 framework 빌드, Room v1/v2 보존·좌표 품질·재개방, Swift header 검사, Release 합성 데이터 배제 3개 guard와 unsigned Release 바이너리 검사 통과.
-- Android Pixel_4a_API_34 에뮬레이터에서 제품 UI로 Bori 이름을 등록하고 산책 중 `adb emu geo fix`로 좌표를 주입했다. 첫 실행에서는 LocationManager callback으로 13m·위치 2개를 확인했다. 최종 제품 화면 재검증에서는 35초·26m·위치 3개를 저장한 뒤 기록을 다시 열었다. [최종 화면 증거](../evidence/submission/android-record.png)는 에뮬레이터 입력이며 야외 GPS 품질이나 실기기 결과가 아니다.
-- iPhone 17 Pro iOS 26 Simulator의 로컬 산책·재실행·완료 화면과 Debug 합성 경로 분리/재열기 5개 XCTest가 통과했다. [제품 기록 화면](../evidence/submission/ios-record.png)에는 GPS 부재를 그대로 표시한다. Android/iOS 각각 39개 시나리오 PNG를 실제 실행에서 수집했고 대표 화면을 `docs/evidence/M05`에 남겼다.
-- 공개용 134개 파일의 이력·이미지·비밀정보 점검을 통과한 새 저장소를 게시했고 architecture/JVM Actions가 통과했다. 비공개 마이그레이션 PR도 Firebase rules·harness/JVM Actions 통과 후 병합했다. 지원용 PDF/영상은 현재 제품 화면으로 교체했다.
+- Android Pixel_4a_API_34 에뮬레이터에서 제품 UI로 Bori 이름을 등록하고 산책 중 `adb emu geo fix`로 좌표를 주입했다. 첫 실행에서는 LocationManager callback으로 13m·위치 2개를 확인했다. 당시 제품 화면 재검증에서는 35초·26m·위치 3개를 저장한 뒤 기록을 다시 열었다. [당시 화면 증거](../evidence/submission/previous-ui/android-record-26m-previous.png)는 에뮬레이터 입력이며 야외 GPS 품질이나 실기기 결과가 아니다.
+- iPhone 17 Pro iOS 26 Simulator의 로컬 산책·재실행·완료 화면과 Debug 합성 경로 분리/재열기 5개 XCTest가 통과했다. [제품 기록 화면](../evidence/submission/previous-ui/ios-record.png)에는 GPS 부재를 그대로 표시한다. Android/iOS 각각 39개 시나리오 PNG를 실제 실행에서 수집했고 대표 화면을 `docs/evidence/M05`에 남겼다.
+- 제출용 깨끗한 공개 스냅샷을 별도 저장소에 게시했고 그 저장소의 architecture/JVM Actions가 통과했다. 비공개 마이그레이션 PR의 Firebase rules와 harness/JVM Actions도 통과했다. 지원용 PDF/영상은 현재 제품 화면으로 교체했다.
 - 외부 증거: signed APK 실제 Android 설치, Apple 서명/TestFlight 처리·초대·실기기 설치, iCloud 서버 복원, M04 최신 전체 readiness는 미완료. 이전 교체 키와 iCloud 로컬 복사는 보존했고 비밀번호를 읽거나 배포 키를 사용하지 않았다.
+- 현재 소스의 Android/iOS 무서명 Release guard 3개와 iPhoneOS arm64 `.xcarchive`/dSYM 생성은 별도로 통과했다(`.workflow/M04/device-release.json`, `upload_ready=false`). 이 빌드 결과를 서명·업로드·기기 검증으로 간주하지 않는다.
 
 ## 반증해야 할 다음 위험
 

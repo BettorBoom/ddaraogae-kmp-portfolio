@@ -13,7 +13,8 @@ class ArchitectureChecks(unittest.TestCase):
     def test_rejects_forbidden_edges_and_domain_platform_imports(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            for module in ["domain", "data", "designsystem", "feature/walk", "feature/dogs", "feature/history", "sharedApp", "androidApp"]:
+            for module in ["domain", "data", "designsystem", "feature/walk", "feature/dogs", "feature/history",
+                           "feature/mypage", "feature/stamp", "feature/auth", "sharedApp", "androidApp"]:
                 directory = root / module
                 directory.mkdir(parents=True)
                 (directory / "build.gradle.kts").write_text("")

@@ -61,7 +61,7 @@ def main(device=False):
     app = (xcarchive / "Products/Applications/Ddaraogae.app" if device else
            derived / "Build/Products/Release-iphonesimulator/Ddaraogae.app")
     binary = app / "Ddaraogae"
-    for forbidden in (b"--scenario", b"--reset-preview", b"--demo-route", b"walks-demo.db", b"demo-route-1", b"fixture-user", b"fixture-walk", b"scenarioViewController", b"--firebase-smoke", b"--firebase-cloud-smoke", b"@example.invalid", b"demo-ddaraogae-kmp", b"Firebase smoke passed"):
+    for forbidden in (b"--scenario", b"--reset-preview", b"--demo-route", b"walks-demo.db", b"--ui-test", b"walks-ui-test.db", b"--location-test", b"walks-location-test.db", b"demo-route-1", b"fixture-user", b"fixture-walk", b"scenarioViewController", b"--firebase-smoke", b"--firebase-cloud-smoke", b"@example.invalid", b"demo-ddaraogae-kmp", b"Firebase smoke passed"):
         if forbidden in binary.read_bytes(): raise SystemExit(f"iOS release binary contains fixture: {forbidden}")
     details, extra_artifacts = {}, []
     if device:

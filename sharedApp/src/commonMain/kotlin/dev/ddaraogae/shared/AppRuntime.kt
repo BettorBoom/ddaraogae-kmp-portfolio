@@ -1,11 +1,13 @@
 package dev.ddaraogae.shared
 
 import dev.ddaraogae.data.NativeBackend
+import dev.ddaraogae.data.CancelHandle
 import dev.ddaraogae.data.observeBackendUser
 import dev.ddaraogae.domain.WalkSessionController
 import dev.ddaraogae.domain.WalkSessionStore
 import dev.ddaraogae.domain.WalkSessionState
 import dev.ddaraogae.domain.WalkStatus
+import dev.ddaraogae.domain.DogGender
 import dev.ddaraogae.domain.LocationSample
 import dev.ddaraogae.walk.walkModule
 import kotlinx.coroutines.*
@@ -13,12 +15,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import org.koin.core.qualifier.named
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
+
+interface ActiveWalkObserver { fun onActiveWalk(walkId: String?, segment: Int) }
 
 @OptIn(ExperimentalObjCRefinement::class)
 class AppRuntime internal constructor(
@@ -113,10 +119,17 @@ class AppRuntime internal constructor(
         catch (_: Exception) { writeFailed.value = true }
     }
 
-    @HiddenFromObjC fun saveDog(name: String, onFinished: (Boolean) -> Unit) {
+    @HiddenFromObjC fun saveDog(name: String, gender: DogGender?, age: Int?, breed: String?, memo: String?,
+                                onFinished: (Boolean) -> Unit) = finishWith(onFinished) {
+        controller.saveDog(name, gender, age, breed, memo)
+    }
+
+    @HiddenFromObjC fun deleteDog(onFinished: (Boolean) -> Unit) = finishWith(onFinished) { controller.deleteDog() }
+
+    private fun finishWith(onFinished: (Boolean) -> Unit, block: suspend () -> Unit) {
         userCoroutines.launch {
             try {
-                controller.saveDog(name)
+                block()
                 onFinished(true)
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -129,6 +142,26 @@ class AppRuntime internal constructor(
     fun pauseForBackground() {
         backgroundCutoffs.value = backgroundCutoffs.value + now()
     }
+
+    fun observeActiveWalk(observer: ActiveWalkObserver): CancelHandle {
+        val subscription = userCoroutines.launch {
+            walkState.map { state ->
+                state.session?.takeIf { it.status == WalkStatus.Recording }?.let { it.id to it.segment }
+            }.distinctUntilChanged().collect { active ->
+                observer.onActiveWalk(active?.first, active?.second ?: 0)
+            }
+        }
+        return object : CancelHandle { override fun cancel() { subscription.cancel() } }
+    }
+
+    fun submitNativeLocation(walkId: String, segment: Int, latitude: Double, longitude: Double,
+                             recordedAtMillis: Long, accuracyMeters: Double) {
+        val sample = try { LocationSample(latitude, longitude, recordedAtMillis, accuracyMeters) }
+            catch (_: IllegalArgumentException) { return }
+        appendLocation(walkId, segment, sample)
+    }
+
+    fun setLocationNotice(message: String?) { locationNotice.value = message }
 
     @HiddenFromObjC fun appendLocation(walkId: String, segment: Int, sample: LocationSample) {
         userCoroutines.launch {

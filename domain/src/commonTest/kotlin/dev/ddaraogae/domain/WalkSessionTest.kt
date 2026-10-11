@@ -20,4 +20,12 @@ class WalkSessionTest {
         val walk = WalkSession("walk", "user", 100, WalkStatus.Recording)
         assertEquals("walk", walk.copy(status = WalkStatus.Completed, endedAtMillis = 200).id)
     }
+
+    @Test fun dogProfileRequiresOnlyANameAndASaneAge() {
+        assertEquals(null, DogProfile("user", "보리").gender)
+        assertEquals(99, DogProfile("user", "보리", age = 99).age)
+        assertFailsWith<IllegalArgumentException> { DogProfile("user", " ") }
+        assertFailsWith<IllegalArgumentException> { DogProfile("user", "보리", age = 100) }
+        assertFailsWith<IllegalArgumentException> { DogProfile("user", "보리", age = -1) }
+    }
 }

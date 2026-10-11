@@ -77,14 +77,11 @@ final class ScenarioTests: XCTestCase {
     @MainActor
     func testScenarioMatrixAndRetry() {
         let app = XCUIApplication()
-        for screen in ["home", "walk", "record"] {
+        for screen in ["home", "walk", "finish"] {
             for state in ["ready", "loading", "empty", "error", "denied", "long"] {
                 for dark in [false, true] {
                     app.launchArguments = ["--scenario", screen, "--state", state, "--font-scale", "2"] + (dark ? ["--dark"] : [])
                     app.launch()
-                    // Heading semantics can expose a different native element type.
-                    let title = app.descendants(matching: .any).matching(identifier: "screen-title").firstMatch
-                    XCTAssertTrue(title.waitForExistence(timeout: 15), "\(screen)/\(state)/\(dark)\n\(app.debugDescription)")
                     let banner = app.staticTexts["개발용 예시 데이터 · \(state)"]
                     XCTAssertTrue(banner.waitForExistence(timeout: 15))
                     waitForStableFrame(banner)
@@ -113,7 +110,7 @@ final class ScenarioTests: XCTestCase {
     @MainActor
     func testBasicScreenCaptures() {
         let app = XCUIApplication()
-        for screen in ["home", "walk", "record"] {
+        for screen in ["home", "walk", "finish"] {
             app.launchArguments = ["--scenario", screen, "--state", "ready", "--font-scale", "1"]
             app.launch()
             let banner = app.staticTexts["개발용 예시 데이터 · ready"]
@@ -126,26 +123,60 @@ final class ScenarioTests: XCTestCase {
         }
     }
     @MainActor
+    func testStampDialogOpensFromFinishAndClosesToTheGallery() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--scenario", "finish", "--state", "ready", "--font-scale", "1"]
+        app.launch()
+        let done = app.buttons["산책 끝!"]
+        reveal(done, in: app)
+        done.tap()
+        XCTAssertTrue(app.staticTexts["오늘 모은 산책 도장"].waitForExistence(timeout: 10), app.debugDescription)
+        let ok = app.buttons["확인했어요!"]
+        XCTAssertTrue(ok.waitForExistence(timeout: 5))
+        ok.tap()
+        XCTAssertTrue(app.staticTexts["화면 갤러리"].waitForExistence(timeout: 10), app.debugDescription)
+    }
+    // Screens added by ADR-013: a default capture and the worst case (dark, 2x text, long names).
+    @MainActor
+    func testExtraScreenCaptures() {
+        let app = XCUIApplication()
+        for screen in ["history", "stamps", "stamp-detail", "mypage", "pets", "pet-form", "alarm", "login", "signup"] {
+            for (state, dark, scale) in [("ready", false, "1"), ("long", true, "2")] {
+                app.launchArguments = ["--scenario", screen, "--state", state, "--font-scale", scale] + (dark ? ["--dark"] : [])
+                app.launch()
+                let banner = app.staticTexts["개발용 예시 데이터 · \(state)"]
+                XCTAssertTrue(banner.waitForExistence(timeout: 15), "\(screen)/\(state)")
+                waitForStableFrame(banner)
+                XCTAssertGreaterThanOrEqual(banner.frame.minY, 40)
+                let capture = XCTAttachment(data: paintedCapture(banner: banner, app: app), uniformTypeIdentifier: "public.png")
+                capture.name = "\(screen)-\(state)-\(dark ? "dark" : "light")-\(scale)x"
+                capture.lifetime = .keepAlways
+                add(capture)
+                app.terminate()
+            }
+        }
+    }
+    @MainActor
     func testDebugSyntheticRouteIsMarkedAndReopens() {
         let app = XCUIApplication()
         app.launchArguments = ["--demo-route", "--reset-preview"]
         app.launch()
         XCTAssertTrue(app.staticTexts["개발용 합성 경로 · 실제 GPS가 아니에요."].waitForExistence(timeout: 15))
-        let history = app.buttons["전체 보기"]
-        reveal(history, in: app)
-        history.tap()
-        let detail = app.buttons["1번째 산책 자세히 보기"]
-        reveal(detail, in: app)
-        detail.tap()
-        XCTAssertTrue(app.staticTexts["샘플 지도 위 실제 좌표의 상대 이동선 · 지리적 위치 불일치"].waitForExistence(timeout: 10))
+        func open(_ identifier: String) {
+            let target = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+            reveal(target, in: app)
+            target.tap()
+        }
+        open("primary-action")
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "history-map").firstMatch.waitForExistence(timeout: 10))
+        open("history-map")
+        XCTAssertTrue(app.staticTexts["샘플 지도 · 실제 위치와 다름"].waitForExistence(timeout: 10))
         app.terminate()
         app.launchArguments = ["--demo-route"]
         app.launch()
         XCTAssertTrue(app.staticTexts["개발용 합성 경로 · 실제 GPS가 아니에요."].waitForExistence(timeout: 15))
-        let historyAgain = app.buttons["전체 보기"]
-        reveal(historyAgain, in: app)
-        historyAgain.tap()
-        XCTAssertTrue(app.buttons["1번째 산책 자세히 보기"].waitForExistence(timeout: 10))
+        open("primary-action")
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "history-map").firstMatch.waitForExistence(timeout: 10))
     }
 }
 #endif

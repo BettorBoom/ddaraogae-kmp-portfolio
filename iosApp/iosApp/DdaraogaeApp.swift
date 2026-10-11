@@ -30,7 +30,9 @@ struct DdaraogaeApp: App {
     @ViewBuilder private var productScreen: some View {
             if let runtime = model.runtime {
                 SharedScreen(runtime: runtime).ignoresSafeArea()
+                    .onAppear { model.setForeground(scenePhase == .active) }
                     .onChange(of: scenePhase) { phase in
+                        model.setForeground(phase == .active)
                         if phase == .background { runtime.pauseForBackground() }
                     }
             } else {
@@ -64,6 +66,7 @@ private struct ScenarioScreen: UIViewControllerRepresentable {
 
 private final class AppModel: ObservableObject {
     @Published private(set) var runtime: AppRuntime?
+    private var locationDriver: ForegroundLocationDriver?
     init() {
         #if DEBUG && DDARAOGAE_FIREBASE_TESTS
         if ProcessInfo.processInfo.arguments.contains("--firebase-smoke") || ProcessInfo.processInfo.arguments.contains("--firebase-cloud-smoke") { return }
@@ -71,6 +74,10 @@ private final class AppModel: ObservableObject {
         prepare()
     }
     func prepare() {
+        locationDriver?.close()
+        locationDriver = nil
+        runtime?.close()
+        runtime = nil
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
         catch { return }
@@ -79,10 +86,18 @@ private final class AppModel: ObservableObject {
         #else
         let demo = false
         #endif
-        let path = directory.appendingPathComponent(demo ? "walks-demo.db" : "walks.db").path
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        let testDatabase = arguments.contains("--location-test") ? "walks-location-test.db" :
+            arguments.contains("--ui-test") ? "walks-ui-test.db" : nil
+        #else
+        let testDatabase: String? = nil
+        #endif
+        // XCTest resets only its own Debug database, never the normal preview.
+        let path = directory.appendingPathComponent(demo ? "walks-demo.db" : testDatabase ?? "walks.db").path
         #if DEBUG
         // Test reset is absent from Release (ADR-006).
-        if ProcessInfo.processInfo.arguments.contains("--reset-preview") {
+        if (demo || testDatabase != nil) && arguments.contains("--reset-preview") {
             for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: path + suffix) }
         }
         #endif
@@ -96,9 +111,17 @@ private final class AppModel: ObservableObject {
             return
         }
         #endif
-        runtime = IosEntryKt.createIosRuntime(databasePath: path, backend: backend)
+        let newRuntime = IosEntryKt.createIosRuntime(databasePath: path, backend: backend)
+        #if DEBUG
+        let disableLocation = ProcessInfo.processInfo.arguments.contains("--disable-location-for-ui-tests")
+        #else
+        let disableLocation = false
+        #endif
+        if !disableLocation { locationDriver = ForegroundLocationDriver(runtime: newRuntime) }
+        runtime = newRuntime
     }
-    deinit { runtime?.close() }
+    func setForeground(_ value: Bool) { locationDriver?.setForeground(value) }
+    deinit { locationDriver?.close(); runtime?.close() }
 }
 
 private struct SharedScreen: UIViewControllerRepresentable {

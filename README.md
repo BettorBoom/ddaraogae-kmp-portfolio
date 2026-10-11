@@ -1,80 +1,123 @@
-# 따라오개: Android 앱의 Kotlin Multiplatform 마이그레이션
+# 따라오개 · Kotlin Multiplatform 마이그레이션
 
-[원본 따라오개](https://github.com/nbc-final-team2/ddaraogae)는 반려견 산책을 기록하는 Android 팀 프로젝트입니다. 이 저장소는 그 앱의 **반려견 등록 → 산책 시작·재개·종료 → 거리·경로 저장 → 기록 열기** 흐름을 Android와 iOS에서 실행할 수 있도록 다시 구성한 포트폴리오입니다. 원본은 팀 공동 작업이며, 이 저장소는 기능 경계와 데이터 수명, 공통 UI, 플랫폼 연결을 별도로 설계한 마이그레이션입니다.
+반려견 산책 기록 앱 **따라오개**([원본 Android 팀 프로젝트](https://github.com/nbc-final-team2/ddaraogae))를 Kotlin Multiplatform과 Compose Multiplatform으로 다시 만든 포트폴리오입니다. 원본의 홈·산책·산책 완료·산책 모아보기·도장·마이페이지·반려견·알림 화면을 **같은 공통 Compose 코드로 Android와 iOS에 이식**했고, 산책 기록(위치·거리·경로)과 도장·그래프는 두 플랫폼에서 실제로 동작합니다. 실제 지도, 로그인, 날씨, 알림 예약, 클라우드 동기화는 **아직 연결하지 않았습니다.** 화면별 같은 점·다른 점은 [패리티 표](docs/ui-parity.md), 남은 일은 [현황표](docs/migration-gap-audit.md)에 그대로 적었습니다.
 
-홈·산책·이력·완료 화면은 원본의 회색 바탕, 갈색 액션, 반려견·그래프·도장·날씨 구획, 지도 중심 산책과 하단 조작부를 기준으로 재구성했습니다. Android View XML과 Naver Map Fragment는 iOS에서 실행할 수 없으므로 Compose Multiplatform으로 다시 그렸습니다. 원본의 공개 반려견 로고와 **고정 샘플 지도**는 출처를 밝히고 재사용했습니다. 이 지도는 현재 위치와 지리적으로 맞지 않습니다. 기록 상세의 선은 저장한 좌표의 **상대 이동선**입니다.
+## 화면
 
-## 직접 실행
+아래는 모두 **일반 제품 빌드**(`개발용 예시 데이터` 배너가 없는 빌드)를 Android 에뮬레이터(Pixel 4a, API 34)와 iPhone 17 Pro Simulator(iOS 26)에서 실행한 화면입니다. 위치는 에뮬레이터/시뮬레이터에 주입한 좌표이며 야외 실측이나 실기기 결과가 아닙니다. 산책 화면의 지도는 원본에 들어 있던 **고정 샘플 이미지**라 현재 위치와 맞지 않고, 경로는 그 위에 상대 선으로 그려지며 화면에 그렇게 표시됩니다.
 
-JDK 17, Android SDK 36/Build Tools 35 또는 Xcode 26과 iPhone Simulator가 필요합니다. 터미널에서 빌드할 때는 `ANDROID_HOME`을 설치된 Android SDK 경로로 설정하세요. Firebase 계정, 서명 키와 API 키는 로컬 시연에 필요하지 않습니다.
+**Android**
 
-Android Studio에서 `androidApp`을 실행하거나:
+![Android 제품 화면](docs/evidence/submission/screens-android.png)
+
+**iOS**
+
+![iOS 제품 화면](docs/evidence/submission/screens-ios.png)
+
+조작 영상(처음 실행 → 반려견 등록 → 주입 좌표로 산책 → 도장 → 이력·마이페이지, 기다리는 구간은 빠르게 돌렸습니다): [Android 68초](docs/evidence/submission/android-demo.mp4) · [iOS 90초](docs/evidence/submission/ios-demo.mp4). 화면 하나씩 보려면 [`docs/evidence/submission/screens/`](docs/evidence/submission/screens)에 플랫폼별 13장이 있습니다. 원본 앱 화면은 이 저장소에 복사하지 않았으니 [원본 저장소](https://github.com/nbc-final-team2/ddaraogae)에서 비교해 주세요.
+
+최종 수정 후 Android 제품 빌드의 [산책 화면과 샘플 지도 안내](docs/evidence/submission/android-walk-map-notice.png)도 별도로 확인했습니다.
+
+## 지금 되는 것과 안 되는 것
+
+| 기능 | Android | iOS |
+|---|---|---|
+| 홈(그래프·"N 시간 전"·도장 달성률), 산책 모아보기(월 선택·경로 팝업), 도장 목록·상세 | 로컬 산책 이력에서 계산, 동작 | 동일 |
+| 반려견 이름·성별·나이·견종·메모 저장·수정·삭제 | Room, 동작(**1마리**) | 동일 |
+| 산책 시작·종료·재실행 복원, 산책 완료와 도장 다이얼로그 | 동작 | 동작 |
+| 실제 위치·거리·경로 | **앱이 열린 동안** | **앱이 열린 동안**(Core Location) |
+| 로그인·회원가입 화면 | UI만(제품 흐름에는 없음) | UI만 |
+| 지도 타일, 날씨·미세먼지, 알림 예약, 경로 공유, 사진, 약관 본문 | 미연결("연결 전" 표시) | 미연결 |
+| 로그인·클라우드 동기화·백그라운드 위치·signed 배포 | 미구현 | 미구현 |
+
+## 빠른 시연
+
+**빌드 없이 설치:** [시연용 Release](https://github.com/BettorBoom/ddaraogae-kmp-portfolio/releases/tag/v0.1.0-demo-20261011)에서 `ddaraogae-debug.apk`(Android) 또는 `Ddaraogae-ios-simulator.app.zip`(Mac의 iPhone Simulator 전용)을 받고 같은 페이지의 `SHA256SUMS.txt`로 무결성을 확인합니다. Android에서는 파일을 기기로 옮겨 열거나 `adb install -r ddaraogae-debug.apk`로 설치합니다. iOS zip은 아래처럼 Simulator에 설치할 수 있습니다. **둘 다 개발용 빌드**이며 TestFlight·App Store·실기기 iOS 설치 파일이 아닙니다.
+
+```sh
+unzip -q Ddaraogae-ios-simulator.app.zip -d /tmp/ddaraogae-ios-demo
+xcrun simctl boot "iPhone 17 Pro" 2>/dev/null; open -a Simulator
+xcrun simctl install booted /tmp/ddaraogae-ios-demo/Ddaraogae.app
+xcrun simctl launch booted dev.ddaraogae.preview
+```
+
+**소스에서 빌드:** 필요한 것: JDK 17, Android SDK(compileSdk 36, `local.properties`의 `sdk.dir`), iOS는 Xcode 26과 iPhone Simulator(Apple Silicon). 새 Firebase 계정이나 서명 비밀번호는 **필요 없습니다.** 앱은 Android minSdk 28·iOS 16 이상입니다.
+
+**Android**: 에뮬레이터(또는 기기)를 켜고 디버그 APK를 설치합니다.
 
 ```sh
 ./gradlew :androidApp:assembleDebug
 adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
+adb shell pm grant dev.ddaraogae.app android.permission.ACCESS_FINE_LOCATION   # 선택: 권한 대화상자 생략
+adb shell am start -n dev.ddaraogae.app/.MainActivity
 ```
 
-iOS에서는:
+**iOS Simulator**: 공용 프레임워크를 만든 뒤 Xcode에서 `iosApp/iosApp.xcodeproj`의 `Ddaraogae` scheme을 iPhone Simulator에서 실행하거나 아래처럼 명령줄로 설치합니다.
 
 ```sh
 ./gradlew :sharedApp:linkDebugFrameworkIosSimulatorArm64
-open iosApp/iosApp.xcodeproj
+xcodebuild -project iosApp/iosApp.xcodeproj -scheme Ddaraogae -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/ios build
+xcrun simctl boot "iPhone 17 Pro" 2>/dev/null; open -a Simulator
+xcrun simctl install booted build/ios/Build/Products/Debug-iphonesimulator/Ddaraogae.app
+xcrun simctl privacy booted grant location dev.ddaraogae.preview   # 선택
+xcrun simctl launch booted dev.ddaraogae.preview
 ```
 
-Xcode에서 `Ddaraogae` scheme과 iPhone Simulator를 선택합니다. 두 플랫폼 모두 **반려견 이름 등록 → 하단 산책 탭 → 산책 시작 → 산책 마치기 → 산책 기록 보기** 순서로 확인합니다. 산책 중 홈으로 나갔다 돌아오거나 앱을 다시 열어 중단·재개와 저장된 기록을 볼 수 있습니다. Android는 앱 화면이 열려 있고 위치 권한이 있을 때 실제 위치 콜백을 기록합니다. iOS 제품 빌드는 현재 시간·기록만 저장하며 실제 위치는 수집하지 않습니다.
-
-| 기능 | Android | iOS |
-|---|---|---|
-| 반려견 이름 1개 등록·수정 | 로컬 Room | 공통 Room |
-| 산책 시작·중단/재개·종료, 재실행 복원 | 지원 | 지원 |
-| 목록·상세·상대 이동선 | 지원 | 기록/화면 지원 |
-| 실제 foreground GPS·거리 | 지원 | 미구현 |
-| 합성 경로 시연 | 일반 제품에는 없음 | Debug scenario 전용 DB, 화면에 표기 |
-| 로그인·클라우드 동기화·배경 추적·실시간 지도 | 미구현 | 미구현 |
-
-iOS의 합성 경로는 `-Pddaraogae.scenarios=true`로 별도 프레임워크를 만들고 Xcode의 `DDARAOGAE_SCENARIOS` 조건과 `--demo-route` 시작 인자를 사용할 때만 나옵니다. `walks-demo.db`를 제품용 `walks.db`와 분리했고 Release에서는 합성 데이터 진입점을 검사로 배제합니다. 이는 실제 GPS 시연이 아닙니다.
-
-## 화면과 검증 증거
-
-- [Android 홈 실제 에뮬레이터](docs/evidence/submission/android-home.png) · [Android 위치 수집 중](docs/evidence/submission/android-gps-walk.png) · [Android 저장된 기록](docs/evidence/submission/android-record.png)
-- [iOS 시뮬레이터 로컬 기록](docs/evidence/submission/ios-record.png) · [Android 조작 영상](docs/evidence/submission/android-demo.mp4)
-- [Android/iOS 화면 상태 표본](docs/evidence/M05/)은 개발용 예시 데이터를 쓰는 **시나리오 UI**입니다. 제품 계정·실제 GPS 증거로 해석하지 않습니다.
-- [2쪽 기술 포트폴리오 PDF](output/pdf/ddaraogae-kmp-portfolio.pdf)
-
-Android 화면의 26m 예시는 에뮬레이터에 좌표를 주입해 받은 foreground 위치 콜백 결과입니다. 야외 측정, 실기기 검증이나 TestFlight 배포를 뜻하지 않습니다.
-
-## 설계와 의사결정
-
-```mermaid
-flowchart TD
-    A[Android Activity · 권한과 위치] --> S[sharedApp · Navigation 3와 사용자 범위]
-    I[iOS Swift host · 앱 수명] --> S
-    S --> F[feature:dogs · walk · history]
-    F --> D[domain · 산책 상태와 계약]
-    S --> R[data · Room 저장과 migration]
-    R --> D
-    F --> U[designsystem · 공통 Compose UI]
-```
-
-8개 Gradle 모듈과 iOS Xcode host를 사용합니다. `domain`은 Android·Compose·Firebase·Room에 의존하지 않고, `feature`끼리는 직접 의존하지 않습니다. Koin 생성자 주입으로 사용자 범위를 조립해 화면 이동 뒤에도 산책 수명이 남습니다. Room v1→v4 migration은 과거 기록을 보존하며 좌표와 거리 업데이트를 한 트랜잭션으로 처리합니다. 늦은 위치 콜백은 산책 ID, 재개 구간, 구간 시작 시각으로 거릅니다.
-
-결정 이유와 대안은 [마감 범위 ADR](docs/adr/010-deadline-local-core.md), [원본 UI 충실도 ADR](docs/adr/011-original-ui-fidelity.md), [개발 기록](docs/devlogs/submission-20261011.md)에 남겼습니다. [독립 리뷰](docs/reviews/submission-20261010.md)는 발견한 두 결함과 수정·미재승인 상태를 구분합니다.
-
-## 재현 가능한 검사
+앱에서 **홈의 반려견 추가 → 이름·성별 입력 → 완료 → 산책 탭 → 산책하기 → 정지 버튼 → 산책 끝!** 순서로 진행하면 홈 그래프, "금방 산책을 다녀왔어요!", 산책 모아보기가 채워집니다. 거리와 도장까지 보려면 산책 중에 좌표를 주입합니다. 1.5km 이상이면 "오늘의 산책 완료" 도장이 나옵니다. 아래 명령은 영상과 같은 값이며 개발용 좌표입니다(실기기 측정이 아닙니다). 앱은 초당 12m를 넘는 이동을 잡음으로 버리므로 11m/s 안쪽으로 주입합니다.
 
 ```sh
-python3 scripts/run_platform_checks.py kmp --ticket M05
+# Android 에뮬레이터: 산책하기를 누른 뒤 실행. 초당 약 11m씩 북쪽으로 1.5km (경도, 위도 순서)
+for i in $(seq 0 140); do adb emu geo fix 127.0000 $(python3 -c "print(f'{37.5 + $i * 0.0001:.5f}')"); sleep 1; done
+
+# iPhone Simulator: 산책하기를 누르기 전에 첫 좌표를 두고, 누른 뒤 약 1.7km 경로를 흘려보냅니다
+xcrun simctl location booted set 37.5000,127.0000
+xcrun simctl location booted start --speed=11 --interval=1 37.5000,127.0000 37.5153,127.0000
+```
+
+iOS 경로 주입은 약 2분 35초 걸립니다. **경로 이동이 끝나고 앱에서 산책을 종료한 다음에만** `xcrun simctl location booted clear`로 주입 좌표를 정리하세요.
+
+## 설계와 검증
+
+`domain`은 산책·반려견 계약과 이력에서 계산하는 도장·통계·표기 규칙을, `data`는 Room v1→v5 보존 migration과 좌표·시간의 원자적 저장을 맡습니다. 기능은 `feature:walk`(산책·완료·도장 다이얼로그), `dogs`, `history`, `stamp`, `mypage`, `auth`(UI만)로 나뉘고 `designsystem`이 원본 색·치수·차트·공통 컴포넌트를 가집니다. `sharedApp`이 Navigation 3·Koin 사용자 범위를 조립하며 Android Activity와 iOS Swift host는 권한·foreground 위치 callback·앱 수명을 연결합니다. 도장·그래프·"N 시간 전"은 저장하지 않고 로컬 산책 이력에서 매번 계산하므로 앱을 다시 열어도 같은 값입니다. 결정과 포기한 대안은 [ADR-010](docs/adr/010-deadline-local-core.md) · [ADR-011](docs/adr/011-original-ui-fidelity.md) · [ADR-012](docs/adr/012-ios-foreground-location.md) · [ADR-013](docs/adr/013-original-ui-port-scope.md)에, 실패와 수정은 [devlog](docs/devlogs/M10.md)에 있습니다.
+
+```sh
+python3 scripts/architecture_check.py
+python3 scripts/run_platform_checks.py kmp --ticket M05 --scenarios
 python3 scripts/run_platform_checks.py android --ticket M05 --scenarios
 python3 scripts/run_platform_checks.py swift --ticket M05 --scenarios
 python3 scripts/collect_scenario_screens.py
 python3 scripts/run_platform_checks.py android --ticket M05
 python3 scripts/run_platform_checks.py swift --ticket M05
-python3 scripts/check_scenario_release.py
+python3 scripts/run_platform_checks.py swift --ticket M05 --location
 python3 scripts/check_swift_api.py
-python3 scripts/architecture_check.py
+python3 scripts/check_scenario_release.py
 ```
 
-Android 검사는 AVD, iOS 검사는 iPhone Simulator가 설치돼 있어야 합니다. 실행기는 원본 JUnit XML과 xcresult를 확인하며 0개·누락·skip·실패를 완료로 세지 않습니다. 시나리오 화면은 각 플랫폼 39장을 생성하고, Release 검사는 Debug 합성 경로가 빠졌는지 확인합니다. 현재 실행 결과와 남은 제한은 [개발 기록](docs/devlogs/submission-20261011.md)에 적었습니다.
+각 runner는 JUnit XML과 xcresult 원본을 보관하고 테스트 0개·누락·skip·실패를 완료로 세지 않습니다. 위 명령 가운데 Android·iOS 항목은 에뮬레이터와 iPhone Simulator가 있어야 합니다. GitHub Actions가 자동으로 도는 검사는 JVM 테스트와 모듈 경계 검사뿐이고, Android·iOS 화면 검사는 이 명령으로 에뮬레이터/시뮬레이터에서 직접 실행한 결과입니다.
 
-이 저장소는 지원용 **진행 중인 로컬 핵심 흐름**입니다. 실제 iOS GPS, 로그인·동기화, 여러 반려견과 사진, 지도 타일·날씨·도장 서비스, signed APK/TestFlight 설치와 양 플랫폼 실기기 검증은 아직 완료하지 않았습니다. 코드가 컴파일됐다는 사실을 그 기능들의 배포 검증으로 표시하지 않습니다.
+### 2026-10-11 로컬 검증 결과
+
+원본 화면 전체 이식을 마친 소스에서 아래를 실행했고 모두 실패·skip 없이 통과했습니다.
+
+| 검사 | 결과 |
+|---|---|
+| 공통 Kotlin 테스트(JVM + iOS Simulator) | 86개 통과 |
+| Android 시나리오 계측(상태·다크·2배 글씨·넘침·재렌더) | 5개 통과 |
+| iOS 시나리오 XCTest | 7개 통과 |
+| 시나리오 화면 캡처 | Android 57장 + iOS 57장, 누락 0 |
+| Android 제품 빌드 계측 | 2개 통과 |
+| iOS 제품 빌드 XCTest | 2개 통과 |
+| iOS Core Location 좌표 주입 | 1개 통과 |
+| Release 가드 | 시나리오 fixture 유출 0, 거부 guard 3개 |
+| Swift 공개 API 기준선·모듈 경계 | 일치·통과 |
+
+이 수치는 Android 에뮬레이터(Pixel 4a, API 34)와 iPhone 17 Pro Simulator(iOS 26)의 로컬 실행 결과입니다. 실기기, 야외 위치, signed 빌드, 스토어 배포는 포함하지 않습니다. [독립 Sol 리뷰](docs/reviews/submission-20261011-sol.md)는 자정 산책 도장·샘플 지도 안내·iOS 시연 명령을 지적했고 수정 소스를 승인했습니다. 리뷰어가 런타임 테스트를 직접 실행한 것은 아닙니다. 스크린샷과 영상은 위 시나리오 캡처가 아니라 일반 제품 빌드를 직접 조작해 찍었습니다.
+
+## 원본 팀 프로젝트와의 관계
+
+원본 따라오개는 팀 프로젝트(nbc-final-team2)입니다. 이 저장소는 Android View XML과 Naver Map 화면을 복사한 것이 아니라 화면의 문구·치수·색·동작 규칙을 공통 Compose와 Kotlin 도메인으로 다시 구현한 작업이며, 원본 저장소의 공개 앱 아이콘·아이콘 벡터·도장 이미지·샘플 지도 자산을 재사용했습니다. 원본 약관·개인정보 처리방침 본문과 SF Pro 글꼴은 가져오지 않았습니다.
+
+## 남은 범위
+
+이것은 진행 중인 포트폴리오입니다. 실제 지도(Android Naver Map·iOS MapKit), Firebase 인증과 계정별 전환, 반려견 여러 마리·사진, 양 플랫폼 백그라운드 추적, 날씨·알림 예약, 서버 동기화·충돌/재시도, signed APK·TestFlight·실기기 검증은 별도 작업입니다. 완료와 미완료의 구분은 [현황표](docs/migration-gap-audit.md)와 [ROADMAP](ROADMAP.md)에 있습니다.

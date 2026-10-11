@@ -12,7 +12,11 @@ def violations(root):
         "feature:walk": {"domain", "designsystem"},
         "feature:dogs": {"domain", "designsystem"},
         "feature:history": {"domain", "designsystem"},
-        "sharedApp": {"domain", "data", "designsystem", "feature:walk", "feature:dogs", "feature:history"},
+        "feature:mypage": {"designsystem"},
+        "feature:stamp": {"domain", "designsystem"},
+        "feature:auth": {"designsystem"},
+        "sharedApp": {"domain", "data", "designsystem", "feature:walk", "feature:dogs", "feature:history", "feature:mypage",
+                      "feature:stamp", "feature:auth"},
         "androidApp": {"sharedApp", "domain"},
     }
     errors = []
