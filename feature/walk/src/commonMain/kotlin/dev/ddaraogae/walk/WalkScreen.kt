@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -118,6 +119,11 @@ fun WalkContent(
         status != ScreenStatus.Loading && status != ScreenStatus.PermissionDenied
     Box(Modifier.fillMaxSize().background(colors.white)) {
         MapBackdrop(Modifier.fillMaxSize())
+        Text("샘플 지도 · 실제 위치와 다름", style = AppText.mini,
+            color = colors.blackFix,
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 124.dp, end = 16.dp).widthIn(max = 180.dp)
+                .background(colors.whiteFix.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp))
         if (!recording && !interrupted) {
             Row(Modifier.align(Alignment.TopStart).padding(start = 20.dp, end = 20.dp, top = 32.dp)) {
                 DogChip(dogName ?: "반려견 없음", dogSelected && dogName != null, onToggleDog, enabled = dogName != null)

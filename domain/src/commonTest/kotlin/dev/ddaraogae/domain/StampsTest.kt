@@ -49,6 +49,16 @@ class StampsTest {
         assertTrue(awards.none { it.type == StampType.Streak3 })
     }
 
+    @Test fun overnightSundayWalkAwardsTheDayAndWeekItStartedIn() {
+        val overnight = walk("overnight", "2026-10-11", hour = 23, meters = 10_000.0)
+            .copy(startedAtMillis = millis("2026-10-11", 23, 55),
+                endedAtMillis = millis("2026-10-12", 0, 10))
+        val awards = awardsOf(overnight)
+        assertEquals(listOf(StampType.DailyWalk, StampType.ShortRunner), typesFor(awards, "overnight"))
+        assertEquals(2, awards.thisWeekCount(millis("2026-10-11", 23, 59), seoul))
+        assertEquals(0, awards.thisWeekCount(millis("2026-10-12", 12), seoul))
+    }
+
     @Test fun sevenWalksInAWeekEarnTheManyWalksStampOnce() {
         val walks = (0 until 8).map { walk("w$it", "2026-10-06", hour = 6 + it) }
         val awards = stampAwards(walks, seoul)

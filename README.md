@@ -16,6 +16,8 @@
 
 조작 영상(처음 실행 → 반려견 등록 → 주입 좌표로 산책 → 도장 → 이력·마이페이지, 기다리는 구간은 빠르게 돌렸습니다): [Android 68초](docs/evidence/submission/android-demo.mp4) · [iOS 90초](docs/evidence/submission/ios-demo.mp4). 화면 하나씩 보려면 [`docs/evidence/submission/screens/`](docs/evidence/submission/screens)에 플랫폼별 13장이 있습니다. 원본 앱 화면은 이 저장소에 복사하지 않았으니 [원본 저장소](https://github.com/nbc-final-team2/ddaraogae)에서 비교해 주세요.
 
+최종 수정 후 Android 제품 빌드의 [산책 화면과 샘플 지도 안내](docs/evidence/submission/android-walk-map-notice.png)도 별도로 확인했습니다.
+
 ## 지금 되는 것과 안 되는 것
 
 | 기능 | Android | iOS |
@@ -30,7 +32,16 @@
 
 ## 빠른 시연
 
-필요한 것: JDK 17, Android SDK(compileSdk 36, `local.properties`의 `sdk.dir`), iOS는 Xcode 26과 iPhone Simulator(Apple Silicon). 새 Firebase 계정이나 서명 비밀번호는 **필요 없습니다.** 앱은 Android minSdk 28·iOS 16 이상입니다.
+**빌드 없이 설치:** [시연용 Release](https://github.com/BettorBoom/ddaraogae-kmp-portfolio/releases/tag/v0.1.0-demo-20261011)에서 `ddaraogae-debug.apk`(Android) 또는 `Ddaraogae-ios-simulator.app.zip`(Mac의 iPhone Simulator 전용)을 받고 같은 페이지의 `SHA256SUMS.txt`로 무결성을 확인합니다. Android에서는 파일을 기기로 옮겨 열거나 `adb install -r ddaraogae-debug.apk`로 설치합니다. iOS zip은 아래처럼 Simulator에 설치할 수 있습니다. **둘 다 개발용 빌드**이며 TestFlight·App Store·실기기 iOS 설치 파일이 아닙니다.
+
+```sh
+unzip -q Ddaraogae-ios-simulator.app.zip -d /tmp/ddaraogae-ios-demo
+xcrun simctl boot "iPhone 17 Pro" 2>/dev/null; open -a Simulator
+xcrun simctl install booted /tmp/ddaraogae-ios-demo/Ddaraogae.app
+xcrun simctl launch booted dev.ddaraogae.preview
+```
+
+**소스에서 빌드:** 필요한 것: JDK 17, Android SDK(compileSdk 36, `local.properties`의 `sdk.dir`), iOS는 Xcode 26과 iPhone Simulator(Apple Silicon). 새 Firebase 계정이나 서명 비밀번호는 **필요 없습니다.** 앱은 Android minSdk 28·iOS 16 이상입니다.
 
 **Android**: 에뮬레이터(또는 기기)를 켜고 디버그 APK를 설치합니다.
 
@@ -62,8 +73,9 @@ for i in $(seq 0 140); do adb emu geo fix 127.0000 $(python3 -c "print(f'{37.5 +
 # iPhone Simulator: 산책하기를 누르기 전에 첫 좌표를 두고, 누른 뒤 약 1.7km 경로를 흘려보냅니다
 xcrun simctl location booted set 37.5000,127.0000
 xcrun simctl location booted start --speed=11 --interval=1 37.5000,127.0000 37.5153,127.0000
-xcrun simctl location booted clear   # 끝난 뒤
 ```
+
+iOS 경로 주입은 약 2분 35초 걸립니다. **경로 이동이 끝나고 앱에서 산책을 종료한 다음에만** `xcrun simctl location booted clear`로 주입 좌표를 정리하세요.
 
 ## 설계와 검증
 
@@ -90,7 +102,7 @@ python3 scripts/check_scenario_release.py
 
 | 검사 | 결과 |
 |---|---|
-| 공통 Kotlin 테스트(JVM + iOS Simulator) | 84개 통과 |
+| 공통 Kotlin 테스트(JVM + iOS Simulator) | 86개 통과 |
 | Android 시나리오 계측(상태·다크·2배 글씨·넘침·재렌더) | 5개 통과 |
 | iOS 시나리오 XCTest | 7개 통과 |
 | 시나리오 화면 캡처 | Android 57장 + iOS 57장, 누락 0 |
@@ -100,7 +112,7 @@ python3 scripts/check_scenario_release.py
 | Release 가드 | 시나리오 fixture 유출 0, 거부 guard 3개 |
 | Swift 공개 API 기준선·모듈 경계 | 일치·통과 |
 
-이 수치는 Android 에뮬레이터(Pixel 4a, API 34)와 iPhone 17 Pro Simulator(iOS 26)의 로컬 실행 결과입니다. 실기기, 야외 위치, signed 빌드, 스토어 배포는 포함하지 않으며 독립 리뷰도 아직 받지 않았습니다. 스크린샷과 영상은 위 시나리오 캡처가 아니라 일반 제품 빌드를 직접 조작해 찍었습니다.
+이 수치는 Android 에뮬레이터(Pixel 4a, API 34)와 iPhone 17 Pro Simulator(iOS 26)의 로컬 실행 결과입니다. 실기기, 야외 위치, signed 빌드, 스토어 배포는 포함하지 않습니다. [독립 Sol 리뷰](docs/reviews/submission-20261011-sol.md)는 자정 산책 도장·샘플 지도 안내·iOS 시연 명령을 지적했고 수정 소스를 승인했습니다. 리뷰어가 런타임 테스트를 직접 실행한 것은 아닙니다. 스크린샷과 영상은 위 시나리오 캡처가 아니라 일반 제품 빌드를 직접 조작해 찍었습니다.
 
 ## 원본 팀 프로젝트와의 관계
 

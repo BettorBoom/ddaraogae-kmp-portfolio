@@ -60,8 +60,10 @@ fun stampAwards(history: List<WalkSession>, zone: TimeZone): List<StampAward> {
     val awards = mutableListOf<StampAward>()
     for (walk in ordered) {
         seen += walk
-        val at = walk.endedAtMillis ?: continue
-        val today = localDateOf(at, zone)
+        // The original evaluates the completed walk against its start date.
+        // Using the finish date here loses daily and weekly awards across midnight.
+        val at = walk.startedAtMillis
+        val today = walk.startDate(zone)
         val week = weekOf(today)
         fun grant(type: StampType, key: LocalDate) {
             if (given.add(type to key)) awards += StampAward(type, walk.id, at)
