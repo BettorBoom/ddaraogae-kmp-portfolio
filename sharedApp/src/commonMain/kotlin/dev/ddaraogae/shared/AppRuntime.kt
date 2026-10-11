@@ -7,6 +7,7 @@ import dev.ddaraogae.domain.WalkSessionController
 import dev.ddaraogae.domain.WalkSessionStore
 import dev.ddaraogae.domain.WalkSessionState
 import dev.ddaraogae.domain.WalkStatus
+import dev.ddaraogae.domain.DogGender
 import dev.ddaraogae.domain.LocationSample
 import dev.ddaraogae.walk.walkModule
 import kotlinx.coroutines.*
@@ -118,10 +119,17 @@ class AppRuntime internal constructor(
         catch (_: Exception) { writeFailed.value = true }
     }
 
-    @HiddenFromObjC fun saveDog(name: String, onFinished: (Boolean) -> Unit) {
+    @HiddenFromObjC fun saveDog(name: String, gender: DogGender?, age: Int?, breed: String?, memo: String?,
+                                onFinished: (Boolean) -> Unit) = finishWith(onFinished) {
+        controller.saveDog(name, gender, age, breed, memo)
+    }
+
+    @HiddenFromObjC fun deleteDog(onFinished: (Boolean) -> Unit) = finishWith(onFinished) { controller.deleteDog() }
+
+    private fun finishWith(onFinished: (Boolean) -> Unit, block: suspend () -> Unit) {
         userCoroutines.launch {
             try {
-                controller.saveDog(name)
+                block()
                 onFinished(true)
             } catch (cancelled: CancellationException) {
                 throw cancelled

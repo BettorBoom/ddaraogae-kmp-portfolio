@@ -10,8 +10,8 @@ import kotlin.test.assertEquals
 import kotlinx.serialization.PolymorphicSerializer
 
 class RouteRestoreTest {
-    @Test fun restoresTypedBackStackWithRecordIdOnNativeToo() {
-        val stack = NavBackStack<NavKey>(Home, Walk, Record("walk-123"))
+    @Test fun restoresTypedBackStackWithWalkIdOnNativeToo() {
+        val stack = NavBackStack<NavKey>(Home, Walk, Finish("walk-123"), Stamps, StampDetail(3), PetForm(editing = true))
         // Exercise the serializer used by rememberNavBackStack. A reified
         // List<NavKey> lookup silently relies on JVM reflection and fails on iOS.
         val serializer = NavBackStackSerializer(PolymorphicSerializer(NavKey::class))

@@ -24,8 +24,9 @@ internal class WalkViewModel(private val controller: WalkSessionController) : Vi
 
     @OptIn(ExperimentalUuidApi::class)
     fun start() {
+        // Same wording as the original's no-dog toast (msg_no_selected_dog).
         val dogName = dog.value?.name ?: run {
-            _error.value = "반려견 이름을 먼저 저장해 주세요."
+            _error.value = "선택된 반려견이 없습니다"
             return
         }
         act { controller.start(Uuid.random().toString(), Clock.System.now().toEpochMilliseconds(), dogName) }
@@ -36,10 +37,16 @@ internal class WalkViewModel(private val controller: WalkSessionController) : Vi
         act { controller.resume(walkId, Clock.System.now().toEpochMilliseconds()) }
     }
 
-    fun finish() {
+    /** Ends the walk; [onFinished] receives its id once the end is saved, to open the finish screen. */
+    fun finish(onFinished: (String) -> Unit) {
         val walkId = state.value.session?.id ?: return
-        act { controller.finish(walkId, Clock.System.now().toEpochMilliseconds()) }
+        act {
+            controller.finish(walkId, Clock.System.now().toEpochMilliseconds())
+            onFinished(walkId)
+        }
     }
+
+    fun clearError() { _error.value = null }
 
     private fun act(block: suspend () -> Unit) {
         if (_busy.value) return

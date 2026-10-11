@@ -10,8 +10,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 @Entity(tableName = "dogs")
-internal data class DogRow(@PrimaryKey val userId: String, val name: String) {
-    fun toProfile() = DogProfile(userId, name)
+internal data class DogRow(
+    @PrimaryKey val userId: String,
+    val name: String,
+    val gender: String? = null,
+    val age: Int? = null,
+    val breed: String? = null,
+    val memo: String? = null,
+) {
+    fun toProfile() = DogProfile(userId, name, DogGender.entries.firstOrNull { it.name == gender }, age, breed, memo)
 }
 
 @Entity(tableName = "walks", indices = [Index(value = ["userId", "activeToken"], unique = true)])
@@ -63,6 +70,9 @@ internal interface WalkDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveDog(dog: DogRow)
 
+    @Query("DELETE FROM dogs WHERE userId = :userId")
+    suspend fun deleteDog(userId: String)
+
     @Query("SELECT * FROM walk_points WHERE userId = :userId AND walkId = :walkId ORDER BY sequence ASC")
     fun observePoints(userId: String, walkId: String): Flow<List<PointRow>>
 
@@ -112,7 +122,7 @@ internal interface WalkDao {
     }
 }
 
-@Database(entities = [DogRow::class, WalkRow::class, PointRow::class], version = 4)
+@Database(entities = [DogRow::class, WalkRow::class, PointRow::class], version = 5)
 @ConstructedBy(WalkDatabaseConstructor::class)
 internal abstract class WalkDatabase : RoomDatabase() { abstract fun walks(): WalkDao }
 
@@ -154,9 +164,18 @@ internal val migration3To4 = object : Migration(3, 4) {
     }
 }
 
+internal val migration4To5 = object : Migration(4, 5) {
+    override fun migrate(connection: SQLiteConnection) {
+        // Additive and nullable (ADR-013): an existing dog keeps its name and gains no guessed values.
+        listOf("gender TEXT", "age INTEGER", "breed TEXT", "memo TEXT").forEach { column ->
+            connection.prepare("ALTER TABLE dogs ADD COLUMN $column").use { it.step() }
+        }
+    }
+}
+
 internal fun openStore(builder: RoomDatabase.Builder<WalkDatabase>): WalkSessionStore =
     RoomWalkStore(builder.setDriver(BundledSQLiteDriver()).setQueryCoroutineContext(Dispatchers.Default)
-        .addMigrations(migration1To2, migration2To3, migration3To4).build())
+        .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5).build())
 
 private class RoomWalkStore(private val database: WalkDatabase) : WalkSessionStore {
     private val dao = database.walks()
@@ -165,7 +184,9 @@ private class RoomWalkStore(private val database: WalkDatabase) : WalkSessionSto
     override fun observeRecord(userId: String, walkId: String) = dao.observeRecord(userId, walkId).map { it?.toSession() }
     override fun observePoints(userId: String, walkId: String) = dao.observePoints(userId, walkId).map { rows -> rows.map { it.toPoint() } }
     override fun observeDog(userId: String) = dao.observeDog(userId).map { it?.toProfile() }
-    override suspend fun saveDog(profile: DogProfile) = dao.saveDog(DogRow(profile.userId, profile.name))
+    override suspend fun saveDog(profile: DogProfile) = dao.saveDog(DogRow(profile.userId, profile.name,
+        profile.gender?.name, profile.age, profile.breed, profile.memo))
+    override suspend fun deleteDog(userId: String) = dao.deleteDog(userId)
     override suspend fun start(session: WalkSession) {
         require(session.status == WalkStatus.Recording && session.endedAtMillis == null)
         // SQLite permits multiple NULL values, but only one activeToken=1 per user.

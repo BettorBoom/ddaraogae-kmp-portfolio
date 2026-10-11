@@ -1,165 +1,162 @@
 package dev.ddaraogae.shared
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
-import androidx.navigation3.runtime.*
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import dev.ddaraogae.designsystem.AppTheme
 import dev.ddaraogae.designsystem.DdaraogaeTheme
-import dev.ddaraogae.designsystem.*
+import dev.ddaraogae.designsystem.LegacyBottomBar
+import dev.ddaraogae.designsystem.LegacyTab
+import dev.ddaraogae.designsystem.LocalToast
+import dev.ddaraogae.designsystem.RoutePoint
+import dev.ddaraogae.designsystem.ScreenStatus
+import dev.ddaraogae.designsystem.ToastHost
+import dev.ddaraogae.designsystem.ToastState
+import dev.ddaraogae.domain.StampAward
+import dev.ddaraogae.domain.StampType
 import dev.ddaraogae.domain.WalkSession
-import dev.ddaraogae.domain.WalkStatus
+import dev.ddaraogae.domain.earnedBy
+import dev.ddaraogae.domain.stampAwards
+import dev.ddaraogae.dogs.PetDetailScreen
+import dev.ddaraogae.dogs.PetFormScreen
+import dev.ddaraogae.dogs.PetListScreen
+import dev.ddaraogae.history.HistoryScreen
+import dev.ddaraogae.mypage.AlarmScreen
+import dev.ddaraogae.mypage.MyPageContent
+import dev.ddaraogae.stamp.StampDetailScreen
+import dev.ddaraogae.stamp.StampListScreen
+import dev.ddaraogae.walk.FinishContent
 import dev.ddaraogae.walk.WalkFeature
-import dev.ddaraogae.dogs.DogEditor
-import dev.ddaraogae.history.HistoryList
-import dev.ddaraogae.history.RecordContent
-import dev.ddaraogae.history.WalkDistanceGraph
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.map
+import kotlinx.datetime.TimeZone
+import kotlin.time.Clock
 
 @Composable
 fun DdaraogaeApp(runtime: AppRuntime, requestLocationPermission: () -> Unit = {}) {
     DdaraogaeTheme {
-        Surface(Modifier.fillMaxSize()) {
-            Column {
-                if (runtime.demoData) Text("개발용 합성 경로 · 실제 GPS가 아니에요.",
-                    color = MaterialTheme.colorScheme.error)
-                val backStack = rememberNavBackStack(routeConfiguration, Home)
-                fun back() { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
-                fun toHistory() {
-                    while (backStack.size > 1 && backStack.last() != History) back()
-                    if (backStack.last() != History) backStack.add(History)
-                }
-                NavDisplay(backStack = backStack, onBack = { back() }, modifier = Modifier.weight(1f),
-                entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(),
-                    rememberViewModelStoreNavEntryDecorator()),
-                entryProvider = entryProvider {
-                    entry<Home> {
-                        val dog by runtime.controller.dog.collectAsState()
-                        val records by runtime.controller.history.collectAsState()
-                        HomeContent(dogName = dog?.name,
-                            records = records,
-                            onDog = { backStack.add(Dog) }, onHistory = { backStack.add(History) },
-                            onWalk = { requestLocationPermission(); backStack.add(Walk) })
+        val toast = remember { ToastState() }
+        CompositionLocalProvider(LocalToast provides toast) {
+            Surface(Modifier.fillMaxSize(), color = AppTheme.colors.white) {
+                Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+                    if (runtime.demoData) Text("개발용 합성 경로 · 실제 GPS가 아니에요.",
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                    val backStack = rememberNavBackStack(routeConfiguration, Home)
+                    fun back() { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) }
+                    val dog by runtime.controller.dog.collectAsState()
+                    val history by runtime.controller.history.collectAsState()
+                    val zone = remember { TimeZone.currentSystemDefault() }
+                    val now by produceState(Clock.System.now().toEpochMilliseconds()) {
+                        while (true) { delay(30_000); value = Clock.System.now().toEpochMilliseconds() }
                     }
-                    entry<Dog> {
-                        val dog by runtime.controller.dog.collectAsState()
-                        var busy by remember { mutableStateOf(false) }
-                        var error by remember { mutableStateOf<String?>(null) }
-                        DogEditor(dog?.name, busy, error, onSave = { name ->
-                            busy = true; error = null
-                            runtime.saveDog(name) { saved ->
-                                busy = false
-                                if (saved) back() else error = "이름을 저장하지 못했어요. 다시 시도해 주세요."
-                            }
-                        }, onBack = { back() })
+                    val awards = remember(history, zone) { stampAwards(history, zone) }
+                    val current = backStack.last()
+                    val tab = when (current) { Home -> LegacyTab.Home; Walk -> LegacyTab.Walk; MyPage -> LegacyTab.MyPage; else -> null }
+                    Box(Modifier.weight(1f)) {
+                        NavDisplay(backStack = backStack, onBack = { back() },
+                            entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(),
+                                rememberViewModelStoreNavEntryDecorator()),
+                            entryProvider = entryProvider {
+                                entry<Home> {
+                                    HomeContent(dog, history, now, zone,
+                                        onAddDog = { backStack.add(PetForm(editing = false)) },
+                                        onHistory = { backStack.add(History) }, onStamps = { backStack.add(Stamps) })
+                                }
+                                entry<Walk> {
+                                    val locationNotice by runtime.locationNotice.collectAsState()
+                                    val writeFailed by runtime.writeFailed.collectAsState()
+                                    WalkFeature(runtime.userScope, onFinished = { backStack.add(Finish(it)) },
+                                        locationNotice = if (writeFailed) "기록 저장에 문제가 있어요. 안전한 곳에서 산책을 마치고 다시 확인해 주세요." else locationNotice)
+                                }
+                                entry<MyPage> { MyPageContent(onDogs = { backStack.add(PetList) }, onAlarm = { backStack.add(Alarm) }) }
+                                entry<History> {
+                                    HistoryScreen(dog, history, now, zone, routeOf = { routeFlow(runtime, it.id) }, onBack = { back() })
+                                }
+                                entry<Stamps> { StampListScreen(onBack = { back() }, onOpen = { backStack.add(StampDetail(it.number)) }) }
+                                entry<StampDetail> { key ->
+                                    StampDetailScreen(StampType.entries.first { it.number == key.number }, awards, zone, onBack = { back() })
+                                }
+                                entry<Finish> { key -> FinishRoute(key.walkId, runtime, awards, zone, onDone = { back() }) }
+                                entry<PetList> {
+                                    PetListScreen(dog, onBack = { back() }, onOpen = { backStack.add(PetDetail) }, onAdd = {
+                                        if (dog == null) backStack.add(PetForm(editing = false))
+                                        else toast.show("이 시연판은 반려견 1마리만 저장해요.")
+                                    })
+                                }
+                                entry<PetDetail> {
+                                    androidx.compose.runtime.LaunchedEffect(dog) { if (dog == null) back() }
+                                    PetDetailScreen(dog, onBack = { back() }, onEdit = { backStack.add(PetForm(editing = true)) })
+                                }
+                                entry<PetForm> { key ->
+                                    var busy by remember { mutableStateOf(false) }
+                                    PetFormScreen(initial = if (key.editing) dog else null, busy = busy, onBack = { back() },
+                                        onSubmit = { draft ->
+                                            busy = true
+                                            runtime.saveDog(draft.name, draft.gender, draft.age, draft.breed, draft.memo) { saved ->
+                                                busy = false
+                                                if (saved) {
+                                                    toast.show(if (key.editing) "반려견 정보가 업데이트되었습니다." else "반려견 정보가 추가되었습니다.")
+                                                    back()
+                                                } else toast.show(if (key.editing) "수정사항 업데이트에 실패했습니다" else "반려견 정보 업로드에 실패했습니다.")
+                                            }
+                                        },
+                                        onDelete = if (key.editing) ({
+                                            runtime.deleteDog { deleted ->
+                                                if (deleted) { toast.show("삭제되었습니다."); back() } else toast.show("반려견 삭제가 실패했습니다")
+                                            }
+                                        }) else null)
+                                }
+                                entry<Alarm> { AlarmScreen(onBack = { back() }) }
+                            })
+                        ToastHost(toast, Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp))
                     }
-                    entry<Walk> {
-                        val locationNotice by runtime.locationNotice.collectAsState()
-                        val writeFailed by runtime.writeFailed.collectAsState()
-                        WalkFeature(runtime.userScope, onBack = { back() },
-                            onRecord = { backStack.add(Record(it)) },
-                            locationNotice = if (writeFailed) "기록 저장에 문제가 있어요. 안전한 곳에서 산책을 마치고 다시 확인해 주세요." else locationNotice)
-                    }
-                    entry<History> {
-                        val records by runtime.controller.history.collectAsState()
-                        HistoryList(records, onBack = { back() }, onRecord = { backStack.add(Record(it)) })
-                    }
-                    entry<Record> { key ->
-                        RecordScreen(key.walkId, runtime, onBack = { toHistory() })
-                    }
-                })
-                if (backStack.last() == Home || backStack.last() == Walk || backStack.last() == Dog) {
-                    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).heightIn(min = 64.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { while (backStack.size > 1) back() }) { Text("홈") }
-                        TextButton(onClick = {
-                            while (backStack.size > 1) back()
-                            requestLocationPermission(); backStack.add(Walk)
-                        }) { Text("산책") }
-                        TextButton(onClick = {
-                            while (backStack.size > 1) back()
-                            backStack.add(Dog)
-                        }) { Text("반려견") }
-                    }
+                    if (tab != null) LegacyBottomBar(tab, onSelect = { selected ->
+                        if (selected == tab) return@LegacyBottomBar
+                        while (backStack.size > 1) back()
+                        when (selected) {
+                            LegacyTab.Home -> Unit
+                            LegacyTab.Walk -> { requestLocationPermission(); backStack.add(Walk) }
+                            LegacyTab.MyPage -> backStack.add(MyPage)
+                        }
+                    })
                 }
             }
         }
     }
 }
 
-@Composable
-internal fun HomeContent(status: ScreenStatus = ScreenStatus.Ready, longText: Boolean = false,
-                         onRetry: (() -> Unit)? = null, dogName: String? = "예시 반려견",
-                         records: List<WalkSession> = emptyList(), onDog: () -> Unit = {},
-                         onHistory: () -> Unit = {}, onWalk: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).safeDrawingPadding()
-        .verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Text("반가워요!", style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.testTag("screen-title").semantics { heading() })
-        Text(if (records.isEmpty()) "오늘의 산책을 시작해 볼까요?" else "함께한 산책 ${records.size}회가 쌓였어요.",
-            style = MaterialTheme.typography.bodyMedium)
-        StateNotice(status, "아직 함께한 산책이 없어요. 작은 걸음부터 시작해 볼까요?", onRetry)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            DogAvatar(Modifier.size(76.dp))
-            Column {
-                Text(dogName ?: "함께할 친구", style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = onDog) {
-                    Text(if (dogName == null) "반려견 이름 등록하기" else "반려견 이름 바꾸기")
-                }
-            }
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("최근 산책 그래프", style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = onHistory) { Text("전체 보기") }
-        }
-        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-            Box(Modifier.fillMaxWidth().height(160.dp).padding(16.dp), contentAlignment = Alignment.Center) {
-                WalkDistanceGraph(records)
-                if (records.isEmpty()) Text("최근 산책 데이터가 없어요.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Text("금주 산책 도장 달성률", style = MaterialTheme.typography.titleMedium)
-        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("도장 집계 연결 전", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Box(Modifier.fillMaxWidth().height(8.dp)
-                    .background(Color(0xFFE2E2E2)))
-            }
-        }
-        Text("오늘의 날씨", style = MaterialTheme.typography.titleMedium)
-        InfoCard("날씨 정보", "날씨 서비스 연결 전 · 실시간 정보 없음")
-        PrimaryAction("산책하러 가기", enabled = dogName != null, onClick = onWalk)
-        if (longText) InfoCard("작은 걸음부터", "익숙한 골목을 천천히 걸어도 좋아요. 반려견의 속도에 맞춰 쉬어 가며 오래 기억할 오늘의 추억을 함께 남겨 보세요. 아주 긴 안내도 글씨 크기와 화면 너비에 맞춰 이어서 읽을 수 있어야 해요.")
-        Text("기록은 이 기기에 저장돼요.", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
+private fun routeFlow(runtime: AppRuntime, walkId: String) = runtime.controller.points(walkId)
+    .map { points -> points.map { RoutePoint(it.sample.latitude, it.sample.longitude, it.segment) } }
 
 @Composable
-private fun RecordScreen(walkId: String, runtime: AppRuntime, onBack: () -> Unit) {
-    val loadedRecord by produceState<Pair<Boolean, WalkSession?>>(false to null, walkId) {
+private fun FinishRoute(walkId: String, runtime: AppRuntime, awards: List<StampAward>, zone: TimeZone, onDone: () -> Unit) {
+    val loaded by produceState<Pair<Boolean, WalkSession?>>(false to null, walkId) {
         runtime.controller.record(walkId).collect { value = true to it }
     }
-    val points by runtime.controller.points(walkId).collectAsState(initial = emptyList())
-    RecordContent(loadedRecord.second, when {
-        !loadedRecord.first -> ScreenStatus.Loading
-        loadedRecord.second == null -> ScreenStatus.Empty
+    val route by produceState(emptyList<RoutePoint>(), walkId) { routeFlow(runtime, walkId).collect { value = it } }
+    FinishContent(loaded.second, route, awards.earnedBy(walkId), when {
+        !loaded.first -> ScreenStatus.Loading
+        loaded.second == null -> ScreenStatus.Empty
         else -> ScreenStatus.Ready
-    },
-        onBack = onBack, points = points)
+    }, zone, onDone)
 }

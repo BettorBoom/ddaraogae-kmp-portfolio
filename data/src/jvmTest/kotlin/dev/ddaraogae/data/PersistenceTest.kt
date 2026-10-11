@@ -90,6 +90,32 @@ class PersistenceTest {
         } finally { Files.deleteIfExists(file) }
     }
 
+    @Test fun versionFourMigrationKeepsDogNameWithoutGuessingNewFields() = runTest {
+        val file = Files.createTempFile("ddaraogae-v4", ".db")
+        try {
+            BundledSQLiteDriver().open(file.toString()).use { connection ->
+                listOf(
+                    "CREATE TABLE IF NOT EXISTS `dogs` (`userId` TEXT NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`userId`))",
+                    "CREATE TABLE IF NOT EXISTS `walks` (`id` TEXT NOT NULL, `userId` TEXT NOT NULL, `startedAtMillis` INTEGER NOT NULL, `status` TEXT NOT NULL, `activeToken` INTEGER, `endedAtMillis` INTEGER, `dogName` TEXT, `distanceMeters` REAL NOT NULL DEFAULT 0.0, `activeDurationMillis` INTEGER NOT NULL DEFAULT 0, `lastResumedAtMillis` INTEGER, `segment` INTEGER NOT NULL DEFAULT 0, `segmentStartedAtMillis` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_walks_userId_activeToken` ON `walks` (`userId`, `activeToken`)",
+                    "CREATE TABLE IF NOT EXISTS `walk_points` (`walkId` TEXT NOT NULL, `sequence` INTEGER NOT NULL, `userId` TEXT NOT NULL, `segment` INTEGER NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `recordedAtMillis` INTEGER NOT NULL, `accuracyMeters` REAL NOT NULL, PRIMARY KEY(`walkId`, `sequence`))",
+                    "CREATE INDEX IF NOT EXISTS `index_walk_points_userId_walkId` ON `walk_points` (`userId`, `walkId`)",
+                    "INSERT INTO dogs VALUES ('a', '보리')",
+                    "INSERT INTO walks VALUES ('done', 'a', 100, 'Completed', NULL, 200, '보리', 12.5, 100, NULL, 0, 100)",
+                    "PRAGMA user_version = 4"
+                ).forEach { sql -> connection.prepare(sql).use { it.step() } }
+            }
+            var store = openJvmWalkStore(file.toString())
+            assertEquals(DogProfile("a", "보리"), store.observeDog("a").first())
+            assertEquals(12.5, store.observeRecord("a", "done").first()?.distanceMeters)
+            store.saveDog(DogProfile("a", "보리", DogGender.Female, 3, "말티즈", "순해요"))
+            store.close()
+            store = openJvmWalkStore(file.toString())
+            assertEquals(DogProfile("a", "보리", DogGender.Female, 3, "말티즈", "순해요"), store.observeDog("a").first())
+            store.close()
+        } finally { Files.deleteIfExists(file) }
+    }
+
     @Test fun preservesRecordsAndEnforcesUserScope() = runTest {
         val file = Files.createTempFile("ddaraogae", ".db")
         try {

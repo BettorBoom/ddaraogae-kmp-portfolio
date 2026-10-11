@@ -36,7 +36,11 @@ final class ForegroundLocationDriver: NSObject, CLLocationManagerDelegate, Activ
     }
 
     private func syncLocation() {
-        guard foreground, activeWalk != nil else { stopLocation(); return }
+        guard foreground, activeWalk != nil else {
+            stopLocation()
+            runtime.setLocationNotice(message: nil)
+            return
+        }
         switch manager.authorizationStatus {
         case .notDetermined:
             if !requestedAuthorization {

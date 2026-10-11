@@ -181,6 +181,7 @@ private class MemoryStore : WalkSessionStore {
     override fun observePoints(userId: String, walkId: String) = flowOf(emptyList<WalkPoint>())
     override fun observeDog(userId: String) = flowOf<DogProfile?>(null)
     override suspend fun saveDog(profile: DogProfile) {}
+    override suspend fun deleteDog(userId: String) {}
     override suspend fun start(session: WalkSession) { latest.value = session }
     override suspend fun finish(userId: String, walkId: String, endedAtMillis: Long) {
         latest.value = latest.value?.copy(status = WalkStatus.Completed, endedAtMillis = endedAtMillis)

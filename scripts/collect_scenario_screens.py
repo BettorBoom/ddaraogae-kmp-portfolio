@@ -9,13 +9,24 @@ from pathlib import Path
 from run_platform_checks import ROOT, build_dir
 
 
+# ADR-013: the first three screens keep the full state matrix; later screens add two captures.
+CORE = ("home", "walk", "finish")
+EXTRA = ("history", "stamps", "stamp-detail", "mypage", "pets", "pet-form", "alarm", "login", "signup")
+PATTERN = re.compile(r"(%s)-(ready|loading|empty|error|denied|long)-(light|dark)-(1x|2x)" % "|".join(CORE + EXTRA))
+VISIBLE = {"home-ready-light-1x", "walk-ready-light-1x", "finish-ready-light-1x", "home-long-dark-2x",
+           "walk-error-dark-2x", "finish-empty-dark-2x", "history-ready-light-1x", "stamps-ready-light-1x",
+           "mypage-ready-light-1x", "pets-ready-light-1x", "pet-form-ready-light-1x", "login-ready-light-1x",
+           "signup-ready-light-1x"}
+
+
 def main():
     work = ROOT / ".workflow/M05"
     archive = work / f"screens-{uuid.uuid4()}"
     archive.mkdir()
-    expected = {f"{screen}-{state}-{theme}-2x" for screen in ("home", "walk", "record")
+    expected = {f"{screen}-{state}-{theme}-2x" for screen in CORE
                 for state in ("ready", "loading", "empty", "error", "denied", "long") for theme in ("light", "dark")}
-    expected |= {f"{screen}-ready-light-1x" for screen in ("home", "walk", "record")}
+    expected |= {f"{screen}-ready-light-1x" for screen in CORE + EXTRA}
+    expected |= {f"{screen}-long-dark-2x" for screen in EXTRA}
     android_receipt = json.loads((work / "android-scenarios-tests.json").read_text())
     if not android_receipt["success"] or not android_receipt["complete"] or android_receipt["skipped"]:
         raise SystemExit("Android suite incomplete: screenshots cannot prove completion")
@@ -29,8 +40,7 @@ def main():
     ios = {}
     for test in json.loads((exported / "manifest.json").read_text()):
         for attachment in test["attachments"]:
-            match = re.match(r"(home|walk|record)-(ready|loading|empty|error|denied|long)-(light|dark)-(1x|2x)",
-                             attachment["suggestedHumanReadableName"])
+            match = PATTERN.match(attachment["suggestedHumanReadableName"])
             if match:
                 name = match.group(0)
                 if name in ios: raise SystemExit(f"Duplicate iOS capture: {name}")
@@ -48,14 +58,13 @@ def main():
             shutil.copyfile(source, copy)
             artifacts.append({"path": str(copy.relative_to(ROOT)), "sha256": hashlib.sha256(copy.read_bytes()).hexdigest()})
             # Keep a small, readable selection; the complete matrix stays in evidence.
-            if name in {"home-ready-light-1x", "walk-ready-light-1x", "record-ready-light-1x",
-                        "home-long-dark-2x", "walk-error-dark-2x", "record-empty-dark-2x"}:
+            if name in VISIBLE:
                 visible = ROOT / "docs/evidence/M05" / platform / f"{name}.png"
                 visible.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(copy, visible)
     (work / "screens.json").write_text(json.dumps({"captures_per_platform": len(expected), "archive": str(archive.relative_to(ROOT)),
                                                    "artifacts": artifacts}, indent=2) + "\n")
-    print("Actual PNG matrix archived: Android 39, iOS 39")
+    print(f"Actual PNG matrix archived: Android {len(expected)}, iOS {len(expected)}")
 
 
 if __name__ == "__main__": main()

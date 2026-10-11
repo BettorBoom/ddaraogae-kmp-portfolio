@@ -4,4 +4,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = "Ddaraogae"
-include(":domain", ":data", ":designsystem", ":feature:walk", ":feature:dogs", ":feature:history", ":sharedApp", ":androidApp")
+include(":domain", ":data", ":designsystem", ":feature:walk", ":feature:dogs", ":feature:history", ":feature:mypage", ":feature:stamp", ":feature:auth", ":sharedApp", ":androidApp")
